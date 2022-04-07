@@ -4,6 +4,7 @@ const { toJWT } = require("../auth/jwt");
 const authMiddleware = require("../auth/middleware");
 const User = require("../models/").user;
 const { SALT_ROUNDS } = require("../config/constants");
+const Spaces = require("../models").space;
 
 const router = new Router();
 
@@ -21,7 +22,7 @@ router.post("/login", async (req, res, next) => {
 
     if (!user || !bcrypt.compareSync(password, user.password)) {
       return res.status(400).send({
-        message: "User with that email not found or password incorrect"
+        message: "User with that email not found or password incorrect",
       });
     }
 
@@ -44,12 +45,19 @@ router.post("/signup", async (req, res) => {
     const newUser = await User.create({
       email,
       password: bcrypt.hashSync(password, SALT_ROUNDS),
-      name
+      name,
     });
 
     delete newUser.dataValues["password"]; // don't send back the password hash
 
     const token = toJWT({ userId: newUser.id });
+    const newSpace = await Spaces.create({
+      title: `${name}'s space`,
+      description: null,
+      backgroundColor: "#ffffff",
+      color: "#000000",
+      userId: newUser.id,
+    });
 
     res.status(201).json({ token, ...newUser.dataValues });
   } catch (error) {
