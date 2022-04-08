@@ -5,6 +5,7 @@ const authMiddleware = require("../auth/middleware");
 const User = require("../models/").user;
 const { SALT_ROUNDS } = require("../config/constants");
 const Spaces = require("../models").space;
+const Story = require("../models/").story;
 
 const router = new Router();
 
@@ -17,8 +18,15 @@ router.post("/login", async (req, res, next) => {
         .status(400)
         .send({ message: "Please provide both email and password" });
     }
-
-    const user = await User.findOne({ where: { email } });
+    // SWENTIPS: include space here
+    const user = await User.findOne({
+      where: { email },
+      include: {
+        model: Spaces,
+        include: [Story],
+        order: [[Story, "createdAt", "DESC"]],
+      },
+    });
 
     if (!user || !bcrypt.compareSync(password, user.password)) {
       return res.status(400).send({
@@ -76,6 +84,12 @@ router.post("/signup", async (req, res) => {
 // - checking if a token is (still) valid
 router.get("/me", authMiddleware, async (req, res) => {
   // don't send back the password hash
+  // SWENTIP: Don't only send back the user but also send back the space
+  const space = await Spaces.findOne({
+    where: { userId: req.user.id },
+    include: [Story],
+    order: [[Story, "createdAt", "DESC"]],
+  });
   delete req.user.dataValues["password"];
   res.status(200).send({ ...req.user.dataValues });
 });
